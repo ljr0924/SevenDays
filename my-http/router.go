@@ -1,23 +1,80 @@
 package my_http
 
-import "fmt"
+import (
+    "encoding/json"
+    "fmt"
+    "strings"
+)
 
 // 自定义处理函数类型
 type HandlerFunc func(*Context)
 
 type router struct {
+    roots    map[string]*node
     handlers map[string]HandlerFunc
 }
 
 func newRouter() *router {
     return &router{
+        roots:    map[string]*node{},
         handlers: map[string]HandlerFunc{},
     }
 }
 
+func parsePattern(pattern string) []string {
+    vs := strings.Split(pattern, "/")
+
+    parts := make([]string, 0)
+    for _, item := range vs{
+        if item != "" {
+            parts = append(parts, item)
+            if item[0] == '*' {
+                break
+            }
+        }
+    }
+    return parts
+}
+
 func (r *router) addRoute(method, pattern string, handler HandlerFunc) {
+
+    parts := parsePattern(pattern)
     key := r.getRouteKey(method, pattern)
+
+    _, ok := r.roots[method]
+    if !ok {
+        r.roots[method] = &node{}
+    }
+    r.roots[method].insert(pattern, parts, 0)
+    b, _ := json.MarshalIndent(r.roots, "", "    ")
+    fmt.Printf("%s\n", b)
     r.handlers[key] = handler
+}
+
+func (r *router) getRoute(method, path string) (*node, map[string]string) {
+    searchParts := parsePattern(path)
+    params := make(map[string]string)
+    root, ok := r.roots[method]
+    if !ok {
+        return nil, nil
+    }
+
+    n := root.search(searchParts, 0)
+    if n != nil {
+        parts := parsePattern(n.Pattern)
+        for index, part := range parts {
+            if part[0] == ':' {
+                params[part[1:]] = searchParts[index]
+            }
+            if part[0] == '*' && len(part) > 1 {
+                params[part[1:]] = strings.Join(searchParts[index:], "/")
+                break
+            }
+        }
+        return n, params
+    }
+
+    return nil, nil
 }
 
 func (r *router) getRouteKey(method, pattern string) string {
@@ -25,9 +82,11 @@ func (r *router) getRouteKey(method, pattern string) string {
 }
 
 func (r *router) handle(c *Context) {
-    key := r.getRouteKey(c.Method, c.Path)
-    if handler, ok := r.handlers[key]; ok {
-        handler(c)
+    n, params := r.getRoute(c. Method, c.Path)
+    if n != nil {
+        key := r.getRouteKey(c.Method, c.Path)
+        c.Params = params
+        r.handlers[key](c)
     } else {
         fmt.Fprintf(c.w, "404 Not Found: %q", c.r.URL)
     }
