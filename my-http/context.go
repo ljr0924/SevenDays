@@ -55,7 +55,7 @@ func (c *Context) Status(code int) {
 
 func (c *Context) String(code int, format string, values ...interface{}) {
     c.SetHeader("Content-Type", "text/plain")
-    fmt.Fprintf(c.w, format, values...)
+    _, _ = fmt.Fprintf(c.w, format, values...)
     c.Status(code)
 }
 
