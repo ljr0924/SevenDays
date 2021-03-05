@@ -16,23 +16,28 @@ type Context struct {
 
     // 请求相关
     Method string
-    Path string
+    Path   string
+    Params map[string]string
 
     // 响应相关
     StatusCode int
-
 }
 
 func newContext(w http.ResponseWriter, r *http.Request) *Context {
     return &Context{
-        w: w,
-        r: r,
+        w:      w,
+        r:      r,
         Method: r.Method,
-        Path: r.URL.Path,
+        Path:   r.URL.Path,
     }
 }
 
-func (c *Context) PostForm(key string) string{
+func (c *Context) Param(key string) string {
+    v, _ := c.Params[key]
+    return v
+}
+
+func (c *Context) PostForm(key string) string {
     return c.r.PostFormValue(key)
 }
 
@@ -54,11 +59,11 @@ func (c *Context) String(code int, format string, values ...interface{}) {
     c.Status(code)
 }
 
-func (c *Context) JSON(code int, obj interface{})  {
+func (c *Context) JSON(code int, obj interface{}) {
     c.SetHeader("Content-Type", "application/json")
     c.Status(code)
     encoder := json.NewEncoder(c.w)
-    if err := encoder.Encode(obj);err != nil {
+    if err := encoder.Encode(obj); err != nil {
         http.Error(c.w, "error system", 500)
     }
 }
@@ -73,6 +78,3 @@ func (c *Context) HTML(code int, html string) {
     c.Status(code)
     c.w.Write([]byte(html))
 }
-
-
-

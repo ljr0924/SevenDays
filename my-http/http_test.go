@@ -1,6 +1,7 @@
 package my_http
 
 import (
+    "fmt"
     "testing"
 )
 
@@ -22,6 +23,9 @@ func TestEngineServeHTTP(t *testing.T) {
     })
     engine.Get("/html", func(c *Context) {
         c.HTML(200, "<h1>这是html</h1>")
+    })
+    engine.Get("/hello/:name", func(c *Context) {
+        c.HTML(200, fmt.Sprintf("<h1>hello %s</h1>", c.Param("name")))
     })
     engine.Run(":8080")
 
