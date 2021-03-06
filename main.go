@@ -6,7 +6,7 @@ import (
 
 func main() {
     engine := my_http.NewEngine()
-    engine.Get("/hello", func(c *my_http.Context) {
+    engine.GET("/hello", func(c *my_http.Context) {
         c.String(200, "hello")
     })
     engine.Run(":8080")

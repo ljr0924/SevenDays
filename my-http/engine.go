@@ -5,33 +5,55 @@ import (
 )
 
 type Engine struct {
-    r *router
+    *RouterGroup
+    groups []*RouterGroup
+    r      *router
+}
+
+type RouterGroup struct {
+    prefix      string        // 前缀
+    middleWares []HandlerFunc // 中间件，支持扩展功能
+    parent      *RouterGroup  // 父节点
+    engine      *Engine       //
 }
 
 func NewEngine() *Engine {
-    return &Engine{
-        r: newRouter(),
+    engine := &Engine{r: newRouter()}
+    engine.RouterGroup = &RouterGroup{engine: engine}
+    engine.groups = make([]*RouterGroup, 0)
+    return engine
+}
+
+func (rg *RouterGroup) Group(prefix string) *RouterGroup {
+    engine := rg.engine
+    newGroup := &RouterGroup{
+        prefix: rg.prefix + prefix,
+        parent: rg,
+        engine: engine,
     }
+    engine.groups = append(engine.groups, newGroup)
+    return newGroup
 }
 
-func (e *Engine) addRoute(method, pattern string, handler HandlerFunc) {
-    e.r.addRoute(method, pattern, handler)
+func (rg *RouterGroup) addRoute(method, comp string, handler HandlerFunc) {
+    pattern := rg.prefix + comp
+    rg.engine.r.addRoute(method, pattern, handler)
 }
 
-func (e *Engine) Get(pattern string, handler HandlerFunc) {
-    e.addRoute("GET", pattern, handler)
+func (rg *RouterGroup) GET(pattern string, handler HandlerFunc) {
+    rg.addRoute("GET", pattern, handler)
 }
 
-func (e *Engine) Post(pattern string, handler HandlerFunc) {
-    e.addRoute("POST", pattern, handler)
+func (rg *RouterGroup) POST(pattern string, handler HandlerFunc) {
+    rg.addRoute("POST", pattern, handler)
 }
 
-func (e *Engine) Put(pattern string, handler HandlerFunc) {
-    e.addRoute("PUT", pattern, handler)
+func (rg *RouterGroup) PUT(pattern string, handler HandlerFunc) {
+    rg.addRoute("PUT", pattern, handler)
 }
 
-func (e *Engine) Delete(pattern string, handler HandlerFunc) {
-    e.addRoute("DELETE", pattern, handler)
+func (rg *Engine) DELETE(pattern string, handler HandlerFunc) {
+    rg.addRoute("DELETE", pattern, handler)
 }
 
 func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
