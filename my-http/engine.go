@@ -1,7 +1,9 @@
 package my_http
 
 import (
+    "log"
     "net/http"
+    "strings"
 )
 
 type Engine struct {
@@ -11,10 +13,10 @@ type Engine struct {
 }
 
 type RouterGroup struct {
-    prefix      string        // 前缀
-    middleWares []HandlerFunc // 中间件，支持扩展功能
-    parent      *RouterGroup  // 父节点
-    engine      *Engine       //
+    prefix     string        // 前缀
+    middleware []HandlerFunc // 中间件，支持扩展功能
+    parent     *RouterGroup  // 父节点
+    engine     *Engine       //
 }
 
 func NewEngine() *Engine {
@@ -22,6 +24,10 @@ func NewEngine() *Engine {
     engine.RouterGroup = &RouterGroup{engine: engine}
     engine.groups = make([]*RouterGroup, 0)
     return engine
+}
+
+func (rg *RouterGroup) Use(middleware ...HandlerFunc) {
+    rg.middleware = append(rg.middleware, middleware...)
 }
 
 func (rg *RouterGroup) Group(prefix string) *RouterGroup {
@@ -57,10 +63,23 @@ func (rg *Engine) DELETE(pattern string, handler HandlerFunc) {
 }
 
 func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+    var middleware []HandlerFunc
+    middleware = append(middleware, e.middleware...)
+    for _, group := range e.groups {
+        if strings.HasPrefix(r.URL.Path, group.prefix) {
+            middleware = append(middleware, group.middleware...)
+        }
+    }
     c := newContext(w, r)
+    c.handlers = middleware
     e.r.handle(c)
 }
 
 func (e *Engine) Run(addr string) error {
+    var host string
+    if strings.HasPrefix(addr, ":") {
+        host = "http://localhost" + addr
+    }
+    log.Printf("server run at ==> %s", host)
     return http.ListenAndServe(addr, e)
 }

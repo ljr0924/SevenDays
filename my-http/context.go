@@ -21,6 +21,10 @@ type Context struct {
 
     // 响应相关
     StatusCode int
+
+    // 中间件
+    handlers []HandlerFunc
+    index    int
 }
 
 func newContext(w http.ResponseWriter, r *http.Request) *Context {
@@ -29,6 +33,15 @@ func newContext(w http.ResponseWriter, r *http.Request) *Context {
         r:      r,
         Method: r.Method,
         Path:   r.URL.Path,
+        index:  -1,
+    }
+}
+
+func (c *Context) Next() {
+    c.index++
+    s := len(c.handlers)
+    for ; c.index < s; c.index++ {
+        c.handlers[c.index](c)
     }
 }
 
