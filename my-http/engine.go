@@ -3,6 +3,7 @@ package my_http
 import (
     "log"
     "net/http"
+    "path"
     "strings"
 )
 
@@ -60,6 +61,26 @@ func (rg *RouterGroup) PUT(pattern string, handler HandlerFunc) {
 
 func (rg *Engine) DELETE(pattern string, handler HandlerFunc) {
     rg.addRoute("DELETE", pattern, handler)
+}
+
+func (rg *RouterGroup) createStaticHandler(relativePath string, fs http.FileSystem) HandlerFunc{
+    absolutePath := path.Join(rg.prefix, relativePath)
+    fileServer := http.StripPrefix(absolutePath, http.FileServer(fs))
+    return func(context *Context) {
+        file := context.Param("filepath")
+        if _, err := fs.Open(file); err != nil {
+            context.Status(http.StatusNotFound)
+            return
+        }
+
+        fileServer.ServeHTTP(context.w, context.r)
+    }
+}
+
+func (rg *RouterGroup) Static(relativePath string, root string) {
+    handler := rg.createStaticHandler(relativePath, http.Dir(root))
+    urlPattern := path.Join(relativePath, "/*filepath")
+    rg.GET(urlPattern, handler)
 }
 
 func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
