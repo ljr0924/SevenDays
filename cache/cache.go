@@ -20,7 +20,7 @@ func (c *cache) add(key string, value ByteView) {
         // todo: 改成工厂函数获取缓存器
         c.c = container.NewLru(c.cacheBytes, nil)
     }
-    c.c.Add(key, value)
+    c.c.Set(key, value)
 }
 
 func (c *cache) get(key string) (bv ByteView, ok bool) {

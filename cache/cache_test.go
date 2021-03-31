@@ -14,7 +14,7 @@ func (d String) Len() int {
 
 func TestGet(t *testing.T) {
     cache := container.NewLru(int64(0), nil)
-    cache.Add("key1", String("1234"))
+    cache.Set("key1", String("1234"))
     if v, ok := cache.Get("key1"); !ok || string(v.(String)) != "1234" {
         t.Fatalf("cache hit key1=1234 failed")
     }
@@ -28,9 +28,9 @@ func TestRemoveOldest(t *testing.T) {
     v1, v2, v3 := "value1", "value2", "v3"
     cap := len(k1 + k2 + v1 + v2)
     cache := container.NewLru(int64(cap), nil)
-    cache.Add(k1, String(v1))
-    cache.Add(k2, String(v2))
-    cache.Add(k3, String(v3))
+    cache.Set(k1, String(v1))
+    cache.Set(k2, String(v2))
+    cache.Set(k3, String(v3))
 
     if _, ok := cache.Get("key1"); ok || cache.Len() != 2 {
         t.Fatalf("Removeoldest key1 failed")
@@ -46,10 +46,10 @@ func TestOnEvictedFunc(t *testing.T) {
     }
 
     cache := container.NewLru(8, callback)
-    cache.Add("k1", String("v1"))
-    cache.Add("k2", String("v2"))
-    cache.Add("k3", String("v3"))
-    cache.Add("k4", String("v4"))
+    cache.Set("k1", String("v1"))
+    cache.Set("k2", String("v2"))
+    cache.Set("k3", String("v3"))
+    cache.Set("k4", String("v4"))
 
     except := []string{"k1", "k2"}
     if !reflect.DeepEqual(except, keys) {

@@ -60,7 +60,7 @@ func (lru *Lru) RemoveOldest() {
     }
 }
 
-func (lru *Lru) Add(key string, value Value) {
+func (lru *Lru) Set(key string, value Value) {
     if ele, ok := lru.cache[key]; ok {
         lru.ll.MoveToFront(ele)
         kv := ele.Value.(*entry)

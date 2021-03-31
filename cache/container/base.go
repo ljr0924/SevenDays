@@ -6,7 +6,7 @@ type Value interface {
 
 type Container interface {
     Get(key string) (Value, bool)
-    Add(key string, value Value)
+    Set(key string, value Value)
     Len() int
     RemoveOldest()
 }
