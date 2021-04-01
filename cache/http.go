@@ -58,6 +58,7 @@ func (p *HTTPPool) ServeHTTP(w http.ResponseWriter, r *http.Request) {
         return
     }
 
+    // 4. 返回客户端
     w.Header().Set("Content-Type/octet", "application/octet-stream")
     _, _ = w.Write(value.ByteSlice())
 
