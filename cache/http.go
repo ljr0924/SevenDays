@@ -4,13 +4,22 @@ import (
     "log"
     "net/http"
     "strings"
+    "sync"
 )
 
 const defaultBasePath = "/_banana"
+const defaultReplicas = 50
 
 type HTTPPool struct {
-    self     string  // 用来记录自己的地址，包括主机名/IP 和端口。
-    basePath string
+    self        string // 用来记录自己的地址，包括主机名/IP 和端口。
+    basePath    string
+    mu          sync.Mutex
+    peers       *Map
+    /*
+    每一个远程节点对应一个httpGetter
+    keyed by e.g. "http://10.0.0.2:8008"
+    */
+    httpGetters map[string]*httpGetter
 }
 
 func NewHTTPPool(self string) *HTTPPool {
@@ -63,3 +72,33 @@ func (p *HTTPPool) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     _, _ = w.Write(value.ByteSlice())
 
 }
+
+func (p *HTTPPool) Set(peers ...string) {
+    p.mu.Lock()
+    defer p.mu.Unlock()
+
+    p.peers = NewMap(defaultReplicas, nil)
+    p.peers.Add(peers...)
+    p.httpGetters = make(map[string]*httpGetter, len(peers))
+    for _, peer := range peers {
+        p.httpGetters[peer] = &httpGetter{baseUrl: peer+p.basePath}
+    }
+}
+
+func (p *HTTPPool) PickPeer(key string) (PeerGetter, bool) {
+    p.mu.Lock()
+    defer p.mu.Unlock()
+
+    if peer := p.peers.Get(key); peer != "" && peer != p.self {
+        p.Log("Pick peer %s", peer)
+        return p.httpGetters[peer], true
+    }
+
+    return nil, false
+}
+
+/*
+确保HTTPPool实现PeerPicker接口，如果没有实现，会被IDE识别出来或者在编译的时候报错，
+不会在使用过程中才发现没有实现接口
+*/
+var _ PeerPicker = (*HTTPPool)(nil)

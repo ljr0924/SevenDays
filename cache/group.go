@@ -11,10 +11,11 @@ type Group struct {
     name      string
     getter    Getter
     mainCache cache
+    peer      PeerPicker
 }
 
 var (
-    mu sync.RWMutex
+    mu     sync.RWMutex
     groups = make(map[string]*Group)
 )
 
@@ -38,7 +39,7 @@ func NewGroup(name string, cacheBytes int64, getter Getter) *Group {
 // 获取缓存组，不存在返回nil
 func GetGroup(name string) *Group {
     mu.RLock()
-    g:= groups[name]
+    g := groups[name]
     mu.RUnlock()
     return g
 }
@@ -57,6 +58,16 @@ func (g *Group) Get(key string) (ByteView, error) {
 }
 
 func (g *Group) load(key string) (value ByteView, err error) {
+    // 若非本机节点，则调用getFromPeer()从远程获取。
+    if g.peer != nil {
+        if peer, ok := g.peer.PickPeer(key); ok {
+            if value, err = g.getFromPeer(peer, key); err == nil {
+                return value, nil
+            }
+            log.Println("[Cache] Failed to get from peer", err)
+        }
+    }
+    // 若是本机节点或者远程获取失败，调用getLocally
     return g.getLocally(key)
 }
 
@@ -78,4 +89,20 @@ func (g *Group) getLocally(key string) (value ByteView, err error) {
 // 更新缓存
 func (g *Group) populateCache(key string, value ByteView) {
     g.mainCache.add(key, value)
+}
+
+// 将实现PeerPicker接口的HTTPPool注入到Group中
+func (g *Group) RegisterPeers(peer PeerPicker) {
+    if g.peer != nil {
+        panic("RegisterPeerPicker called more than once")
+    }
+    g.peer = peer
+}
+
+func (g *Group) getFromPeer(peer PeerGetter, key string) (ByteView, error) {
+    bytes, err := peer.Get(g.name, key)
+    if err != nil {
+        return ByteView{}, err
+    }
+    return ByteView{b: bytes}, nil
 }
