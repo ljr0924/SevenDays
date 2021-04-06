@@ -1,6 +1,7 @@
 package cache
 
 import (
+    "SevenDays/cache/single_flight"
     "fmt"
     "log"
     "sync"
@@ -12,6 +13,8 @@ type Group struct {
     getter    Getter
     mainCache cache
     peer      PeerPicker
+
+    loader *single_flight.Group
 }
 
 var (
@@ -30,6 +33,7 @@ func NewGroup(name string, cacheBytes int64, getter Getter) *Group {
         name:      name,
         getter:    getter,
         mainCache: cache{cacheBytes: cacheBytes},
+        loader: &single_flight.Group{},
     }
     groups[name] = g
 
@@ -58,17 +62,27 @@ func (g *Group) Get(key string) (ByteView, error) {
 }
 
 func (g *Group) load(key string) (value ByteView, err error) {
-    // 若非本机节点，则调用getFromPeer()从远程获取。
-    if g.peer != nil {
-        if peer, ok := g.peer.PickPeer(key); ok {
-            if value, err = g.getFromPeer(peer, key); err == nil {
-                return value, nil
+
+    // 使用 g.loader.Do 包裹起来即可，这样确保了并发场景下针对相同的 key，load 过程只会调用一次
+    view, err := g.loader.Do(key, func() (interface{}, error) {
+        // 若非本机节点，则调用getFromPeer()从远程获取。
+        if g.peer != nil {
+            if peer, ok := g.peer.PickPeer(key); ok {
+                if value, err = g.getFromPeer(peer, key); err == nil {
+                    return value, nil
+                }
+                log.Println("[Cache] Failed to get from peer", err)
             }
-            log.Println("[Cache] Failed to get from peer", err)
         }
+        // 若是本机节点或者远程获取失败，调用getLocally
+        return g.getLocally(key)
+    })
+
+    if err == nil {
+        return view.(ByteView), nil
     }
-    // 若是本机节点或者远程获取失败，调用getLocally
-    return g.getLocally(key)
+
+    return ByteView{}, err
 }
 
 // 调用用户自定义回调函数获取数据，并更新到cache中
