@@ -1,6 +1,8 @@
 package cache
 
 import (
+    pb "SevenDays/cache/cache_pb"
+    "google.golang.org/protobuf/proto"
     "log"
     "net/http"
     "strings"
@@ -67,9 +69,15 @@ func (p *HTTPPool) ServeHTTP(w http.ResponseWriter, r *http.Request) {
         return
     }
 
+    body, err := proto.Marshal(&pb.Response{Value: value.ByteSlice()})
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+
     // 4. 返回客户端
     w.Header().Set("Content-Type/octet", "application/octet-stream")
-    _, _ = w.Write(value.ByteSlice())
+    _, _ = w.Write(body)
 
 }
 

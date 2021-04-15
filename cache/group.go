@@ -1,6 +1,7 @@
 package cache
 
 import (
+    pb "SevenDays/cache/cache_pb"
     "SevenDays/cache/single_flight"
     "fmt"
     "log"
@@ -33,7 +34,7 @@ func NewGroup(name string, cacheBytes int64, getter Getter) *Group {
         name:      name,
         getter:    getter,
         mainCache: cache{cacheBytes: cacheBytes},
-        loader: &single_flight.Group{},
+        loader:    &single_flight.Group{},
     }
     groups[name] = g
 
@@ -114,9 +115,14 @@ func (g *Group) RegisterPeers(peer PeerPicker) {
 }
 
 func (g *Group) getFromPeer(peer PeerGetter, key string) (ByteView, error) {
-    bytes, err := peer.Get(g.name, key)
+    req := &pb.Request{
+        Group: g.name,
+        Key:   key,
+    }
+    res := &pb.Response{}
+    err := peer.Get(req, res)
     if err != nil {
         return ByteView{}, err
     }
-    return ByteView{b: bytes}, nil
+    return ByteView{b: res.Value}, nil
 }
